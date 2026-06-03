@@ -1,0 +1,10 @@
+# 文档目录
+docs/
+
+# 青龙面板系统模块（仅本地开发使用）
+notify.py
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
