@@ -1,7 +1,9 @@
 """配置加载与自动生成模块。"""
 import json
+import logging
 import os
-import sys
+
+logger = logging.getLogger(__name__)
 
 _CONFIG_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _DEFAULT_PATH = os.path.join(_CONFIG_DIR, "roco-merchant.json")
@@ -28,16 +30,17 @@ def _generate_config(path: str):
     try:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(DEFAULT_CONFIG, f, ensure_ascii=False, indent=2)
-        print(f"配置文件已生成: {path}")
+        logger.info("配置文件已生成: %s", path)
     except PermissionError:
-        print(f"无权限创建配置文件 {path}")
-    except Exception as e:
-        print(f"创建配置文件 {path} 失败: {e}")
+        logger.error("无权限创建配置文件 %s", path)
+    except Exception:
+        logger.exception("创建配置文件 %s 失败", path)
 
 
 def load_config() -> dict:
     """加载配置，按优先级合并：环境变量 > 配置文件 > 默认模板。"""
     config_path = _get_config_path()
+    logger.debug("加载配置文件: %s", config_path)
     file_config = {}
 
     # 读取配置文件
@@ -47,10 +50,11 @@ def load_config() -> dict:
         try:
             with open(config_path, "r", encoding="utf-8") as f:
                 file_config = json.load(f)
+            logger.debug("配置文件读取成功: %s", config_path)
         except json.JSONDecodeError as e:
-            print(f"配置文件 {config_path} JSON 格式错误: {e}，使用默认配置")
-        except Exception as e:
-            print(f"读取配置文件 {config_path} 失败: {e}，使用默认配置")
+            logger.warning("配置文件 %s JSON 格式错误: %s，使用默认配置", config_path, e)
+        except Exception:
+            logger.exception("读取配置文件 %s 失败，使用默认配置", config_path)
 
     if not isinstance(file_config, dict):
         file_config = {}
@@ -62,10 +66,11 @@ def load_config() -> dict:
     env_key = os.getenv("ROCOM_API_KEY")
     if env_key:
         config.setdefault("api", {})["key"] = env_key
+        logger.debug("api.key 从环境变量 ROCOM_API_KEY 读取")
 
     api_key = config.get("api", {}).get("key", "")
     if not api_key:
-        print("api.key 未配置，请设置 ROCOM_API_KEY 环境变量或编辑配置文件")
+        logger.warning("api.key 未配置，请设置 ROCOM_API_KEY 环境变量或编辑配置文件")
 
     return config
 

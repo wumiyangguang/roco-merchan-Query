@@ -1,5 +1,8 @@
 """数据解析处理模块。"""
+import logging
 from datetime import datetime, timedelta, timezone
+
+logger = logging.getLogger(__name__)
 
 
 def get_beijing_time():
@@ -18,12 +21,14 @@ def get_round_info():
     start_time = now.replace(hour=8, minute=0, second=0, microsecond=0)
 
     if now < start_time:
+        logger.debug("当前时间早于 08:00，尚未开市")
         return {"current": "未开放", "total": 4, "countdown": "尚未开市"}
 
     delta_seconds = int((now - start_time).total_seconds())
     round_index = (delta_seconds // (4 * 3600)) + 1
 
     if round_index > 4:
+        logger.debug("当前为第 %d 轮，今日已收市", round_index)
         return {"current": 4, "total": 4, "countdown": "今日已收市"}
 
     round_end = start_time + timedelta(hours=round_index * 4)
@@ -32,6 +37,8 @@ def get_round_info():
     minutes, _ = divmod(rem, 60)
 
     countdown_str = f"{hours}小时{minutes}分钟" if hours > 0 else f"{minutes}分钟"
+
+    logger.debug("当前第 %d/%d 轮，剩余 %s", round_index, 4, countdown_str)
 
     return {
         "current": round_index,
@@ -42,6 +49,7 @@ def get_round_info():
 
 def process_merchant_data(data: dict) -> dict:
     if not data:
+        logger.warning("传入的 data 为空，返回空结果")
         return {}
 
     now_ms = int(get_beijing_time().timestamp() * 1000)
@@ -49,6 +57,8 @@ def process_merchant_data(data: dict) -> dict:
 
     activities = data.get("merchantActivities") or data.get("merchant_activities") or []
     activity = activities[0] if activities else {}
+    logger.debug("活动名称: %s, 商品列表数: %d",
+                 activity.get("name", "未知"), len(activities))
 
     buckets = [
         ("道具", activity.get("get_props") or []),
@@ -62,6 +72,7 @@ def process_merchant_data(data: dict) -> dict:
         for item in random_goods
         if isinstance(item, dict) and str(item.get("goods_name", "") or item.get("name", "")).strip()
     }
+    logger.debug("元数据字典条目数: %d", len(goods_meta_by_name))
 
     all_products = []
     active_products = []
@@ -120,6 +131,8 @@ def process_merchant_data(data: dict) -> dict:
             if is_active:
                 active_products.append(product)
 
+    logger.debug("商品总数: %d, 活跃商品: %d", len(all_products), len(active_products))
+
     today = datetime.fromtimestamp(now_ms / 1000, tz=timezone(timedelta(hours=8))).strftime("%Y-%m-%d")
     grouped = {}
 
@@ -152,6 +165,8 @@ def process_merchant_data(data: dict) -> dict:
         for g in sorted(grouped.values(), key=lambda x: x["sort"])
         if g["products"]
     ]
+
+    logger.debug("历史分组数: %d", len(history_groups))
 
     return {
         "title": activity.get("name", "远行商人"),
