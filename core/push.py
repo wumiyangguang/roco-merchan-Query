@@ -17,6 +17,7 @@
         return True
 """
 import base64
+import concurrent.futures
 import hashlib
 import hmac
 import json
@@ -62,7 +63,7 @@ def _qmsg_push(title: str, content: str, config: dict) -> bool:
     logger.debug("QMSG 推送 -> %s", qtype)
 
     try:
-        resp = requests.post(url, params={"msg": f"{title}\n\n{content}"}, timeout=15)
+        resp = requests.post(url, params={"msg": f"{title}\n\n{content}"}, timeout=(5, 10))
         data = resp.json()
     except requests.RequestException:
         logger.exception("QMSG 推送网络异常")
@@ -100,7 +101,7 @@ def _pushplus_push(title: str, content: str, config: dict) -> bool:
     logger.debug("PushPlus 推送 -> token=%s...", token[:8])
 
     try:
-        resp = requests.post(url, json=body, timeout=15)
+        resp = requests.post(url, json=body, timeout=(5, 10))
         data = resp.json()
     except requests.RequestException:
         logger.exception("PushPlus 推送网络异常")
@@ -115,7 +116,7 @@ def _pushplus_push(title: str, content: str, config: dict) -> bool:
 
     # 兜底旧域名
     try:
-        resp2 = requests.post("http://pushplus.hxtrip.com/send", json=body, timeout=15)
+        resp2 = requests.post("http://pushplus.hxtrip.com/send", json=body, timeout=(5, 10))
         data2 = resp2.json()
         if data2.get("code") == 200:
             logger.info("PushPlus(hxtrip) 推送成功")
@@ -148,7 +149,7 @@ def _server_chan_push(title: str, content: str, config: dict) -> bool:
     logger.debug("Server酱 推送")
 
     try:
-        resp = requests.post(url, data=data, timeout=15)
+        resp = requests.post(url, data=data, timeout=(5, 10))
         result = resp.json()
     except requests.RequestException:
         logger.exception("Server酱 推送网络异常")
@@ -186,7 +187,7 @@ def _bark_push(title: str, content: str, config: dict) -> bool:
     logger.debug("Bark 推送 -> %s", url)
 
     try:
-        resp = requests.post(url, json=body, timeout=15)
+        resp = requests.post(url, json=body, timeout=(5, 10))
         data = resp.json()
     except requests.RequestException:
         logger.exception("Bark 推送网络异常")
@@ -232,7 +233,7 @@ def _dingtalk_push(title: str, content: str, config: dict) -> bool:
     logger.debug("钉钉机器人 推送")
 
     try:
-        resp = requests.post(url, json=body, timeout=15)
+        resp = requests.post(url, json=body, timeout=(5, 10))
         data = resp.json()
     except requests.RequestException:
         logger.exception("钉钉机器人 推送网络异常")
@@ -265,7 +266,7 @@ def _feishu_push(title: str, content: str, config: dict) -> bool:
     logger.debug("飞书 推送")
 
     try:
-        resp = requests.post(url, json=body, timeout=15)
+        resp = requests.post(url, json=body, timeout=(5, 10))
         data = resp.json()
     except requests.RequestException:
         logger.exception("飞书 推送网络异常")
@@ -303,7 +304,7 @@ def _telegram_push(title: str, content: str, config: dict) -> bool:
     logger.debug("Telegram 推送 -> chat_id=%s", user_id)
 
     try:
-        resp = requests.post(url, params=params, timeout=15)
+        resp = requests.post(url, params=params, timeout=(5, 10))
         data = resp.json()
     except requests.RequestException:
         logger.exception("Telegram 推送网络异常")
@@ -341,7 +342,7 @@ def _fetch_hitokoto() -> str:
 
 
 def send(title: str, content: str, config: dict = None) -> None:
-    """推送消息到所有已配置的渠道。
+    """推送消息到所有已配置的渠道（多线程并发）。
 
     Args:
         title: 推送标题
@@ -370,13 +371,27 @@ def send(title: str, content: str, config: dict = None) -> None:
     logger.info("推送标题: %s", title)
     logger.info("推送内容:\n%s", content)
 
-    success_count = 0
-    for channel in _channels:
+    # 多线程并发推送所有渠道
+    def _run_channel(ch):
+        t0 = _time.time()
         try:
-            if channel(title, content, config):
-                success_count += 1
+            ok = ch(title, content, config)
+            elapsed = (_time.time() - t0) * 1000
+            if ok:
+                logger.debug("%s 成功，耗时 %.0fms", ch.__name__, elapsed)
+            return ok
         except Exception:
-            logger.exception("推送渠道 %s 异常", channel.__name__)
+            elapsed = (_time.time() - t0) * 1000
+            logger.exception("%s 异常，耗时 %.0fms", ch.__name__, elapsed)
+            return False
+
+    max_workers = min(len(_channels), 7)
+    success_count = 0
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(_run_channel, ch): ch for ch in _channels}
+        for future in concurrent.futures.as_completed(futures):
+            if future.result():
+                success_count += 1
 
     if success_count == 0:
         logger.warning("所有推送渠道均未成功（可能未配置或全部失败）")
