@@ -16,10 +16,25 @@ DEFAULT_CONFIG = {
     "push": {
         "title": "📢 远行商人",
         "hitokoto": False,
-        # ---- QMSG 酱推送配置 ----
-        # QMSG_KEY / QMSG_TYPE 环境变量优先于以下配置
+        # ---- QMSG 酱 ----
         "qmsg_key": "",
-        "qmsg_type": "send",  # send=私聊, group=群聊
+        "qmsg_type": "send",          # send=私聊, group=群聊
+        # ---- PushPlus（push+ 微信推送） ----
+        "pushplus_token": "",
+        "pushplus_topic": "",          # 群组编码，可选
+        # ---- Server酱（微信推送） ----
+        "server_key": "",
+        # ---- Bark（iOS 推送） ----
+        "bark_key": "",
+        "bark_server": "",             # 自建服务地址，可选
+        # ---- 钉钉机器人 ----
+        "dd_bot_token": "",
+        "dd_bot_secret": "",
+        # ---- 飞书机器人 ----
+        "fs_key": "",
+        # ---- Telegram ----
+        "tg_bot_token": "",
+        "tg_user_id": "",
     },
 }
 
@@ -99,10 +114,27 @@ def get_api_config(config: dict) -> tuple:
 def get_push_config(config: dict) -> dict:
     """提取推送配置。"""
     push = config.get("push", {})
-    default_push = DEFAULT_CONFIG["push"]
+    dp = DEFAULT_CONFIG["push"]
     return {
-        "title": push.get("title", default_push["title"]),
-        "hitokoto": push.get("hitokoto", default_push["hitokoto"]),
-        "qmsg_key": push.get("qmsg_key", default_push["qmsg_key"]),
-        "qmsg_type": push.get("qmsg_type", default_push["qmsg_type"]),
+        "title": push.get("title", dp["title"]),
+        "hitokoto": push.get("hitokoto", dp["hitokoto"]),
+        # QMSG
+        "qmsg_key": push.get("qmsg_key", dp["qmsg_key"]),
+        "qmsg_type": push.get("qmsg_type", dp["qmsg_type"]),
+        # PushPlus
+        "pushplus_token": push.get("pushplus_token", dp["pushplus_token"]),
+        "pushplus_topic": push.get("pushplus_topic", dp["pushplus_topic"]),
+        # Server酱
+        "server_key": push.get("server_key", dp["server_key"]),
+        # Bark
+        "bark_key": push.get("bark_key", dp["bark_key"]),
+        "bark_server": push.get("bark_server", dp["bark_server"]),
+        # 钉钉
+        "dd_bot_token": push.get("dd_bot_token", dp["dd_bot_token"]),
+        "dd_bot_secret": push.get("dd_bot_secret", dp["dd_bot_secret"]),
+        # 飞书
+        "fs_key": push.get("fs_key", dp["fs_key"]),
+        # Telegram
+        "tg_bot_token": push.get("tg_bot_token", dp["tg_bot_token"]),
+        "tg_user_id": push.get("tg_user_id", dp["tg_user_id"]),
     }
