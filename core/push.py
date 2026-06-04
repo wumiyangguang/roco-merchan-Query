@@ -109,8 +109,9 @@ def send(title: str, content: str, config: dict = None) -> None:
         logger.warning("推送内容为空，跳过推送")
         return
 
-    # 启用一言时追加到正文末尾
-    if config.get("hitokoto"):
+    # 启用一言时追加到正文末尾（兼容布尔值和字符串）
+    hitokoto = config.get("hitokoto")
+    if hitokoto and hitokoto != "false":
         quote = _fetch_hitokoto()
         if quote:
             content += f"\n\n{quote}"
