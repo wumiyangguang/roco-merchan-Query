@@ -9,7 +9,7 @@
 添加新渠道示例：
     @register_channel
     def my_channel(title, content, config):
-        key = os.getenv("MY_KEY") or config.get("my_key", "")
+        key = config.get("my_key", "")
         if not key:
             return False
         # ... 推送逻辑 ...
@@ -17,7 +17,6 @@
 """
 import json
 import logging
-import os
 
 import requests
 
@@ -44,14 +43,12 @@ def register_channel(func):
 def _qmsg_push(title: str, content: str, config: dict) -> bool:
     """QMSG 酱推送。
 
-    配置来源（优先级从高到低）：
-    1. 环境变量 QMSG_KEY / QMSG_TYPE
-    2. 配置文件 push.qmsg_key / push.qmsg_type
+    配置来源：配置文件 push.qmsg_key / push.qmsg_type
 
     文档：https://qmsg.zendee.cn/api
     """
-    key = os.getenv("QMSG_KEY") or config.get("qmsg_key", "")
-    qtype = os.getenv("QMSG_TYPE") or config.get("qmsg_type", "send")
+    key = config.get("qmsg_key", "")
+    qtype = config.get("qmsg_type", "send")
 
     if not key:
         logger.debug("QMSG_KEY 未配置，跳过 QMSG 推送")
