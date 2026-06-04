@@ -12,7 +12,7 @@ from core.logger import setup_logging
 from core.config import load_config, get_api_config, get_push_config
 from core.fetcher import fetch_merchant_data
 from core.processor import process_merchant_data
-from notify import send
+from core.push import send
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ def main():
         raw = fetch_merchant_data(api_url, api_key)
     except Exception as e:
         logger.exception("API 请求失败")
-        send(f"{push_cfg['title']} ⚠️ 监控异常", f"请求失败: {e}")
+        send(f"{push_cfg['title']} ⚠️ 监控异常", f"请求失败: {e}", push_cfg)
         return
 
     if raw.get("code") != 0:
@@ -73,13 +73,14 @@ def main():
         send(
             f"{push_cfg['title']} ⚠️ API 错误",
             raw.get("message", "未知错误"),
+            push_cfg,
         )
         return
 
     data = raw.get("data")
     if not data:
         logger.warning("API 返回的 data 字段为空")
-        send(f"{push_cfg['title']} ⚠️ 数据为空", "API 返回的 data 字段为空")
+        send(f"{push_cfg['title']} ⚠️ 数据为空", "API 返回的 data 字段为空", push_cfg)
         return
 
     # 3. 解析处理
@@ -91,7 +92,7 @@ def main():
     # 4. 组装内容并推送
     body = build_message(processed)
     logger.info("推送消息...")
-    send(push_cfg["title"], body)
+    send(push_cfg["title"], body, push_cfg)
 
     elapsed = (time.time() - start_ts) * 1000
     logger.info("===== 查询完成，耗时 %.0fms =====", elapsed)

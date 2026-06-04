@@ -16,6 +16,10 @@ DEFAULT_CONFIG = {
     "push": {
         "title": "📢 远行商人",
         "hitokoto": False,
+        # ---- QMSG 酱推送配置 ----
+        # QMSG_KEY / QMSG_TYPE 环境变量优先于以下配置
+        "qmsg_key": "",
+        "qmsg_type": "send",  # send=私聊, group=群聊
     },
 }
 
@@ -95,7 +99,10 @@ def get_api_config(config: dict) -> tuple:
 def get_push_config(config: dict) -> dict:
     """提取推送配置。"""
     push = config.get("push", {})
+    default_push = DEFAULT_CONFIG["push"]
     return {
-        "title": push.get("title", DEFAULT_CONFIG["push"]["title"]),
-        "hitokoto": push.get("hitokoto", DEFAULT_CONFIG["push"]["hitokoto"]),
+        "title": push.get("title", default_push["title"]),
+        "hitokoto": push.get("hitokoto", default_push["hitokoto"]),
+        "qmsg_key": push.get("qmsg_key", default_push["qmsg_key"]),
+        "qmsg_type": push.get("qmsg_type", default_push["qmsg_type"]),
     }
