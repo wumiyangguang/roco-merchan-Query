@@ -11,7 +11,7 @@ sys.path.insert(0, SCRIPT_DIR)
 from core.logger import setup_logging
 from core.config import load_config, get_api_config, get_push_config
 from core.fetcher import fetch_merchant_data
-from core.processor import process_merchant_data
+from core.processor import get_beijing_time, process_merchant_data
 from core.push import send
 
 logger = logging.getLogger(__name__)
@@ -22,7 +22,10 @@ def build_message(processed: dict) -> str:
     round_info = processed.get("round_info", {})
     products = processed.get("products", [])
 
+    now_str = get_beijing_time().strftime("%Y-%m-%d %H:%M:%S")
+
     lines = [
+        f"北京时间: {now_str}",
         f"第 {round_info.get('current', '?')}/{round_info.get('total', '?')} 轮 "
         f"| 剩余 {round_info.get('countdown', '未知')}",
         "",
