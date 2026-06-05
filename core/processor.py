@@ -47,6 +47,47 @@ def get_round_info():
     }
 
 
+def _calc_remaining_str(end_ms: int, now_ms: int) -> str:
+    """计算剩余时间的中文描述。"""
+    remaining_ms = max(end_ms - now_ms, 0)
+    total_seconds = remaining_ms // 1000
+    days = total_seconds // 86400
+    hours = (total_seconds % 86400) // 3600
+    minutes = (total_seconds % 3600) // 60
+
+    parts = []
+    if days > 0:
+        parts.append(f"{days}天")
+    if hours > 0 or days > 0:
+        parts.append(f"{hours}小时")
+    if minutes > 0 or not parts:
+        parts.append(f"{minutes}分钟")
+    return "".join(parts)
+
+
+def _get_category(end_ms: int, now_ms: int) -> str:
+    """根据结束时间判定分类：本轮限定 / 多轮持续 / 跨日有效。"""
+    now_dt = datetime.fromtimestamp(now_ms / 1000, tz=timezone(timedelta(hours=8)))
+
+    # 当天最后一刻（23:59:59.999）
+    today_end = now_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+    today_end_ms = int(today_end.timestamp() * 1000)
+
+    # 当前轮次结束时间（08:00 起每 4 小时一轮）
+    start_of_day = now_dt.replace(hour=8, minute=0, second=0, microsecond=0)
+    delta_seconds = int((now_dt - start_of_day).total_seconds())
+    round_index = min(max((delta_seconds // (4 * 3600)) + 1, 1), 4)
+    round_end = start_of_day + timedelta(hours=round_index * 4)
+    round_end_ms = int(round_end.timestamp() * 1000)
+
+    if end_ms <= round_end_ms:
+        return "本轮限定"
+    elif end_ms <= today_end_ms:
+        return "多轮持续"
+    else:
+        return "跨日有效"
+
+
 def process_merchant_data(data: dict) -> dict:
     if not data:
         logger.warning("传入的 data 为空，返回空结果")
@@ -133,6 +174,57 @@ def process_merchant_data(data: dict) -> dict:
 
     logger.debug("商品总数: %d, 活跃商品: %d", len(all_products), len(active_products))
 
+    # ========== 构建分类分组（仅从 get_props 获取）==========
+    categorized = {
+        "本轮限定": {},
+        "多轮持续": {},
+        "跨日有效": {},
+    }
+
+    for item in (activity.get("get_props") or []):
+        if not isinstance(item, dict):
+            continue
+
+        goods_meta = goods_meta_by_name.get(str(item.get("name", "")).strip(), {})
+
+        s_time = item.get("start_time") or activity.get("start_time")
+        e_time = item.get("end_time") or activity.get("end_time")
+        start_ms = int(s_time) if s_time else None
+        end_ms = int(e_time) if e_time else None
+
+        # 只保留当前活跃的道具（已结束的不输出）
+        if start_ms is None or end_ms is None:
+            continue
+        if not (start_ms <= now_ms < end_ms):
+            continue
+
+        price = item.get("price") if item.get("price") not in (None, "") else goods_meta.get("price")
+
+        product = {
+            "name": item.get("name", "未知商品"),
+            "price": price,
+        }
+
+        cat = _get_category(end_ms, now_ms)
+        categorized[cat].setdefault(end_ms, []).append(product)
+
+    active_groups = []
+    for cat_name in ["本轮限定", "多轮持续", "跨日有效"]:
+        cat_groups = categorized.get(cat_name, {})
+        if not cat_groups:
+            continue
+        groups = []
+        for end_ms in sorted(cat_groups):
+            prods = cat_groups[end_ms]
+            groups.append({
+                "remaining_str": _calc_remaining_str(end_ms, now_ms),
+                "products": prods,
+            })
+        active_groups.append({
+            "category": cat_name,
+            "groups": groups,
+        })
+
     today = datetime.fromtimestamp(now_ms / 1000, tz=timezone(timedelta(hours=8))).strftime("%Y-%m-%d")
     grouped = {}
 
@@ -175,4 +267,5 @@ def process_merchant_data(data: dict) -> dict:
         "round_info": round_info,
         "products": active_products,
         "history_groups": history_groups,
+        "active_groups": active_groups,
     }
