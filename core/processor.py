@@ -169,14 +169,16 @@ def process_merchant_data(data: dict) -> dict:
         if not (start_ms <= now_ms < end_ms):
             continue
 
+        name = item.get("name", "未知商品")
         get_props_items.append({
-            "name": item.get("name", "未知商品"),
+            "name": name,
             "end_ms": end_ms,
             "remaining_str": _calc_remaining_str(end_ms, now_ms),
+            "is_special": name in ("国王球", "棱镜球", "炫彩精灵蛋"),
         })
 
-    # 按结束时间升序排列
-    get_props_items.sort(key=lambda x: x["end_ms"])
+    # 特殊物品优先，再按结束时间升序排列
+    get_props_items.sort(key=lambda x: (not x["is_special"], x["end_ms"]))
 
     # 去重：同时间段的同名商品合并，后缀标注剩余时间
     active_groups = []
@@ -189,6 +191,7 @@ def process_merchant_data(data: dict) -> dict:
         active_groups.append({
             "name": p["name"],
             "remaining_str": p["remaining_str"],
+            "is_special": p["is_special"],
         })
 
     today = datetime.fromtimestamp(now_ms / 1000, tz=timezone(timedelta(hours=8))).strftime("%Y-%m-%d")

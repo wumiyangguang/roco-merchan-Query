@@ -34,7 +34,8 @@ def build_message(processed: dict) -> str:
 
     if active_groups:
         for p in active_groups:
-            lines.append(f"  {p['name']}（剩余{p['remaining_str']}）")
+            prefix = "⭐" if p.get("is_special") else "  "
+            lines.append(f"{prefix}{p['name']}（剩余{p['remaining_str']}）")
     else:
         lines.append("当前暂无商品")
 
