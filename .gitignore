@@ -10,3 +10,4 @@ __pycache__/
 *.pyo
 roco-merchant.json
 .claude/CLAUDE.md
+.codegraph/daemon.pid
