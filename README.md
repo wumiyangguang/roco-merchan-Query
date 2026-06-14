@@ -1,2 +1,2 @@
-# roco-merchan-Query-Qinglong
-自动查询洛克王国远行商人，通过青龙面板推送
+# roco-merchan-Query
+自动查询洛克王国远行商人，自动推送
