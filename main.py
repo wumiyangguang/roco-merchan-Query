@@ -24,13 +24,21 @@ def build_message(processed: dict) -> str:
 
     now_str = get_beijing_time().strftime("%Y-%m-%d %H:%M")
 
+    # 检测是否有特殊物品
+    has_special = any(p.get("is_special") for p in active_groups)
+
     lines = [
         f"北京时间: {now_str}",
-        f"",
+    ]
+    if has_special:
+        lines.append("@at=-1@")
+
+    lines.extend([
+        "",
         f"第 {round_info.get('current', '?')}/{round_info.get('total', '?')} 轮 "
         f"| 剩余 {round_info.get('countdown', '未知')}",
         "",
-    ]
+    ])
 
     if active_groups:
         for p in active_groups:
@@ -95,6 +103,11 @@ def main():
     # 4. 组装内容并推送
     t0 = time.time()
     body = build_message(processed)
+
+    # 特殊物品出现时记录日志
+    if any(p.get("is_special") for p in processed.get("active_groups", [])):
+        logger.info("检测到特殊物品，触发 @全员")
+
     logger.info("推送消息...")
     send(push_cfg["title"], body, push_cfg)
     logger.info("推送完成（%.0fms）", (time.time() - t0) * 1000)
